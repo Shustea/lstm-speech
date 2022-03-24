@@ -30,42 +30,48 @@ def mix_signal(wav_data_path, p_silence, p_one):
     # function uses given probabilty for each speaker to speak, mixes them to 5 sec intervals, and returns (meant to be used twice for our data)
     fs = 16000
     five_sec = 5*fs
-    first_speaker = np.random.normal(0,1e-5,five_sec) 
+    first_speaker = np.random.normal(0,1e-4,five_sec) 
     second_speaker = np.zeros(five_sec)
     speakers_dirs = os.listdir(wav_data_path)
     prob = np.random.rand()
+    snr = 0
+    g = 0
     if prob > p_silence :
         first_speaker_id = random.choice(speakers_dirs)
-        first_speaker, fs = librosa.load(wav_data_path + first_speaker_id + '/' + random.choice(os.listdir(wav_data_path + first_speaker_id)), fs)
+        first_file_id = random.choice(os.listdir(wav_data_path + first_speaker_id))
+        first_speaker, fs = librosa.load(wav_data_path + first_speaker_id + '/' + first_file_id, fs)
         if len(first_speaker) > five_sec :
             rand_start = random.randint(0,len(first_speaker)-five_sec-1) 
             first_speaker = first_speaker[rand_start:rand_start+five_sec]
         else:
-            first_speaker = np.concatenate((first_speaker,np.random.normal(0,1e-5,five_sec-len(first_speaker))))
+            first_speaker = np.concatenate((first_speaker,np.random.normal(0,1e-4,five_sec-len(first_speaker))))
         speakers_dirs.remove(first_speaker_id)
     else:
         first_speaker_id = 'no_first'
     if prob > p_one + p_silence: # probabilty for 2 speakers
         second_speaker_id = random.choice(speakers_dirs)
-        second_speaker, fs = librosa.load(wav_data_path + second_speaker_id + '/' + random.choice(os.listdir(wav_data_path + second_speaker_id)), fs)
+        second_file_id = random.choice(os.listdir(wav_data_path + second_speaker_id))
+        snr = np.random.uniform(0,5)
+        g = np.sqrt(10**(-snr/10) * np.std(first_speaker)**2 / np.std(second_speaker)**2)
+        second_speaker, fs = librosa.load(wav_data_path + second_speaker_id + '/' + second_file_id, fs)
         if len(second_speaker) > five_sec :
             rand_start = random.randint(0,len(second_speaker)-five_sec-1) #clips bigger then 10 sec
             second_speaker = second_speaker[rand_start:rand_start+five_sec]
         else:
-            second_speaker = np.concatenate((second_speaker,np.random.normal(0,1e-5,five_sec-len(second_speaker))))
+            second_speaker = np.concatenate((second_speaker,np.random.normal(0,1e-4,five_sec-len(second_speaker))))
         speakers_dirs.remove(second_speaker_id)
     else:
         second_speaker_id = 'no_second'
-    mixed_signal = first_speaker + second_speaker
-    return mixed_signal
+    mixed_signal = first_speaker + g * second_speaker
+    return mixed_signal, first_file_id.split[0] + '-' + second_file_id.split[0] + '-' + str(snr)
 
 def CreateSample(wav_data_path, processed_path):
     fs = 16000
-    for sample in range(5):
-        mix1 = mix_signal(wav_data_path,0,0.5)
-        mix2 = mix_signal(wav_data_path,0.55, 0.15)
+    for [] in range(5):
+        mix1, mix1_id = mix_signal(wav_data_path, 0, 0.5)
+        mix2, mix2_id = mix_signal(wav_data_path, 0.55, 0.15)
         final_sample = np.concatenate((mix1, mix2))
-        sf.write(processed_path + 'sample_' + str(sample) + '.wav' , final_sample, fs)
+        sf.write(processed_path + mix1_id + '_' + mix2_id + '.wav' , final_sample, fs)
 
 if __name__ == "__main__":
     wav_data_path = '/mnt/dsi_vol1/users/shustea1/Data/lstm-speech/data/raw/WSJ0/'
