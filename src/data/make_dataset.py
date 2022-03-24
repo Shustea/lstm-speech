@@ -47,13 +47,13 @@ def mix_signal(wav_data_path, p_silence, p_one):
             first_speaker = np.concatenate((first_speaker,np.random.normal(0,1e-4,five_sec-len(first_speaker))))
         speakers_dirs.remove(first_speaker_id)
     else:
-        first_speaker_id = 'no_first'
+        first_file_id = 'NONE'
     if prob > p_one + p_silence: # probabilty for 2 speakers
         second_speaker_id = random.choice(speakers_dirs)
         second_file_id = random.choice(os.listdir(wav_data_path + second_speaker_id))
         snr = np.random.uniform(0,5)
-        g = np.sqrt(10**(-snr/10) * np.std(first_speaker)**2 / np.std(second_speaker)**2)
         second_speaker, fs = librosa.load(wav_data_path + second_speaker_id + '/' + second_file_id, fs)
+        g = np.sqrt(10**(-snr/10) * (np.std(first_speaker)**2 / np.std(second_speaker)**2))
         if len(second_speaker) > five_sec :
             rand_start = random.randint(0,len(second_speaker)-five_sec-1) #clips bigger then 10 sec
             second_speaker = second_speaker[rand_start:rand_start+five_sec]
@@ -61,13 +61,13 @@ def mix_signal(wav_data_path, p_silence, p_one):
             second_speaker = np.concatenate((second_speaker,np.random.normal(0,1e-4,five_sec-len(second_speaker))))
         speakers_dirs.remove(second_speaker_id)
     else:
-        second_speaker_id = 'no_second'
+        second_file_id = 'NONE'
     mixed_signal = first_speaker + g * second_speaker
-    return mixed_signal, first_file_id.split[0] + '-' + second_file_id.split[0] + '-' + str(snr)
+    return mixed_signal, first_file_id.split('.')[0] + '-' + second_file_id.split('.')[0] + '-' + str(snr)
 
 def CreateSample(wav_data_path, processed_path):
     fs = 16000
-    for [] in range(5):
+    for _ in range(5):
         mix1, mix1_id = mix_signal(wav_data_path, 0, 0.5)
         mix2, mix2_id = mix_signal(wav_data_path, 0.55, 0.15)
         final_sample = np.concatenate((mix1, mix2))
