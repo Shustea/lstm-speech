@@ -1,4 +1,5 @@
 from ast import operator
+from pickle import NONE
 #from asyncio.windows_events import NULL
 import librosa
 import argparse
@@ -25,21 +26,21 @@ def convert_wv12wav(args):
             sf.write(args.wav_path + speaker + '/' + signal.split('.')[0] + '.wav', wv1_signal, fs)
 
 
-def mix_signal(wav_data_path, p_silence, p_one,args):
+def mix_signal(p_silence, p_one,args):
     # input - wav files path, first speaker porbabilty, second speaker probabilty
     # output - mixed signal of speakers according to their defined probabilty
     # function uses given probabilty for each speaker to speak, mixes them to 5 sec intervals, and returns (meant to be used twice for our data)
     five_sec = 5*args.fs
     first_speaker = np.random.normal(0,1e-4,five_sec) 
     second_speaker = np.zeros(five_sec)
-    speakers_dirs = os.listdir(wav_data_path)
+    speakers_dirs = os.listdir(args.wav_path)
     prob = np.random.rand()
     snr = 0
     g = 0
     if prob > p_silence :
         first_speaker_id = random.choice(speakers_dirs)
-        first_file_id = random.choice(os.listdir(wav_data_path + first_speaker_id))
-        first_speaker, fs = librosa.load(wav_data_path + first_speaker_id + '/' + first_file_id, args.fs)
+        first_file_id = random.choice(os.listdir(args.wav_path + first_speaker_id))
+        first_speaker, fs = librosa.load(args.wav_path + first_speaker_id + '/' + first_file_id, args.fs)
         if len(first_speaker) > five_sec :
             rand_start = random.randint(0,len(first_speaker)-five_sec-1) 
             first_speaker = first_speaker[rand_start:rand_start+five_sec]
@@ -50,9 +51,9 @@ def mix_signal(wav_data_path, p_silence, p_one,args):
         first_file_id = 'NONE'
     if prob > p_one + p_silence: # probabilty for 2 speakers
         second_speaker_id = random.choice(speakers_dirs)
-        second_file_id = random.choice(os.listdir(wav_data_path + second_speaker_id))
+        second_file_id = random.choice(os.listdir(args.wav_path + second_speaker_id))
         snr = np.random.uniform(0,5)
-        second_speaker, fs = librosa.load(wav_data_path + second_speaker_id + '/' + second_file_id, fs)
+        second_speaker, fs = librosa.load(args.wav_path + second_speaker_id + '/' + second_file_id, fs)
         g = np.sqrt(10**(-snr/10) * (np.std(first_speaker)**2 / np.std(second_speaker)**2))
         if len(second_speaker) > five_sec :
             rand_start = random.randint(0,len(second_speaker)-five_sec-1) #clips bigger then 10 sec
@@ -67,30 +68,31 @@ def mix_signal(wav_data_path, p_silence, p_one,args):
 
 def createSample(args): #change to generic values
     # for i in range(args.train_num):
-    #     mix1, mix1_id = mix_signal(args.wav_path, 0, 0.5, args)
-    #     mix2, mix2_id = mix_signal(args.wav_path, 0.55, 0.15, args)
+    #     mix1, mix1_id = mix_signal(0, 0.5, args)
+    #     mix2, mix2_id = mix_signal(0.55, 0.15, args)
     #     final_sample = np.concatenate((mix1, mix2))
     #     sf.write(args.train_path + mix1_id + '_' + mix2_id + '.wav' , final_sample, args.fs)
     #     print('finished file {}/{}'.format(i+1, args.train_num))
     for i in range(args.val_num):
-        mix1, mix1_id = mix_signal(args.wav_path, 0, 0.5, args)
-        mix2, mix2_id = mix_signal(args.wav_path, 0.55, 0.15, args)
+        mix1, mix1_id = mix_signal(0, 0.5, args)
+        mix2, mix2_id = mix_signal(0.55, 0.15, args)
         final_sample = np.concatenate((mix1, mix2))
         sf.write(args.val_path + mix1_id + '_' + mix2_id + '.wav' , final_sample, args.fs)
         print('finished file {}/{}'.format(i+1, args.val_num))
 
-def getOriginal(sample , wav_data_path):
-    first_part_first_speaker, first_part_second_speaker, second_part_first_speaker, second_part_second_speaker = []
+
+def getOriginal(sample ,args):
+    first_part_first_speaker, first_part_second_speaker, second_part_first_speaker, second_part_second_speaker = None, None, None, None
     first_snr, second_snr = 0
     first_part = sample.split('_')[0]
     second_part = sample.split('_')[1].split('.')[0]
-    first_part_first_speaker, fs = librosa.load(wav_data_path + first_part.split('-')[0])
+    first_part_first_speaker, fs = librosa.load(args.wav_path + first_part.split('-')[0])
     if not first_part.split('-')[1] == 'NONE':
-        first_part_second_speaker, [] = librosa.load(wav_data_path + first_part.split('-')[1])
+        first_part_second_speaker, _ = librosa.load(args.wav_path + first_part.split('-')[1])
         first_snr = first_part.split('-')[-1]
-    second_part_first_speaker, [] = librosa.load(wav_data_path + second_part.split('-')[0])
+    second_part_first_speaker, _ = librosa.load(args.wav_path + second_part.split('-')[0])
     if not second_part.split('-')[1] == 'NONE':
-        second_part_second_speaker, [] = librosa.load(wav_data_path + second_part.split('-')[1])
+        second_part_second_speaker, _ = librosa.load(args.wav_path + second_part.split('-')[1])
         second_snr = second_part.split('-')[-1]
     return first_part_first_speaker, first_part_second_speaker, first_snr, second_part_first_speaker, second_part_second_speaker, second_snr
 
@@ -126,7 +128,5 @@ if __name__ == "__main__":
 
    # convert_wv12wav(original_data_dir, wav_data_path, fs)
     createSample(args)
-    #createSample(wav_data_path,processed_path, val_num)
-    #createSample(wav_data_path,processed_path, test_num)
 
         
