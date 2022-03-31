@@ -35,6 +35,7 @@ def mix_signal(p_silence, p_one,args):
     second_speaker = np.zeros(five_sec)
     speakers_dirs = os.listdir(args.wav_path)
     prob = np.random.rand()
+    rand_start = np.zeros(2)
     snr = 0
     g = 0
     if prob > p_silence :
@@ -42,8 +43,8 @@ def mix_signal(p_silence, p_one,args):
         first_file_id = random.choice(os.listdir(args.wav_path + first_speaker_id))
         first_speaker, fs = librosa.load(args.wav_path + first_speaker_id + '/' + first_file_id, args.fs)
         if len(first_speaker) > five_sec :
-            rand_start = random.randint(0,len(first_speaker)-five_sec-1) 
-            first_speaker = first_speaker[rand_start:rand_start+five_sec]
+            rand_start[0] = random.randint(0,len(first_speaker)-five_sec-1) 
+            first_speaker = first_speaker[rand_start[0]:rand_start[0]+five_sec]
         else:
             first_speaker = np.concatenate((first_speaker,np.random.normal(0,1e-4,five_sec-len(first_speaker))))
         speakers_dirs.remove(first_speaker_id)
@@ -56,15 +57,15 @@ def mix_signal(p_silence, p_one,args):
         second_speaker, fs = librosa.load(args.wav_path + second_speaker_id + '/' + second_file_id, fs)
         g = np.sqrt(10**(-snr/10) * (np.std(first_speaker)**2 / np.std(second_speaker)**2))
         if len(second_speaker) > five_sec :
-            rand_start = random.randint(0,len(second_speaker)-five_sec-1) #clips bigger then 10 sec
-            second_speaker = second_speaker[rand_start:rand_start+five_sec]
+            rand_start[1] = random.randint(0,len(second_speaker)-five_sec-1) #clips bigger then 10 sec
+            second_speaker = second_speaker[rand_start[1]:rand_start[1]+five_sec]
         else:
             second_speaker = np.concatenate((second_speaker,np.random.normal(0,1e-4,five_sec-len(second_speaker))))
         speakers_dirs.remove(second_speaker_id)
     else:
         second_file_id = 'NONE'
     mixed_signal = first_speaker + g * second_speaker
-    return mixed_signal, first_file_id.split('.')[0] + '-' + second_file_id.split('.')[0] + '-' + str(snr)
+    return mixed_signal, first_file_id.split('.')[0] + '-' + second_file_id.split('.')[0] + '-' + str(snr) + '-' + str(rand_start[0]) + '-' + str(rand_start[1])
 
 def createSample(args): #change to generic values
     # for i in range(args.train_num):
@@ -83,18 +84,22 @@ def createSample(args): #change to generic values
 
 def getOriginal(sample ,args):
     first_part_first_speaker, first_part_second_speaker, second_part_first_speaker, second_part_second_speaker = None, None, None, None
-    first_snr, second_snr = 0
+    first_snr, second_snr, first_snap, second_snap, third_snap, forth_snap = 0
     first_part = sample.split('_')[0]
     second_part = sample.split('_')[1].split('.')[0]
     first_part_first_speaker, fs = librosa.load(args.wav_path + first_part.split('-')[0])
     if not first_part.split('-')[1] == 'NONE':
         first_part_second_speaker, _ = librosa.load(args.wav_path + first_part.split('-')[1])
-        first_snr = first_part.split('-')[-1]
+        first_snr = first_part.split('-')[2]
+    first_snap = first_part.split('-')[3]
+    second_snap = first_part.split('-')[4]
     second_part_first_speaker, _ = librosa.load(args.wav_path + second_part.split('-')[0])
     if not second_part.split('-')[1] == 'NONE':
         second_part_second_speaker, _ = librosa.load(args.wav_path + second_part.split('-')[1])
-        second_snr = second_part.split('-')[-1]
-    return first_part_first_speaker, first_part_second_speaker, first_snr, second_part_first_speaker, second_part_second_speaker, second_snr
+        second_snr = second_part.split('-')[2]
+    third_snap = second_part.split('-')[3]
+    forth_snap = second_part.split('-')[4]
+    return first_part_first_speaker, first_part_second_speaker, first_snr, second_part_first_speaker, second_part_second_speaker, second_snr, [first_snap, second_snap, third_snap, forth_snap]
 
 
 if __name__ == "__main__":
