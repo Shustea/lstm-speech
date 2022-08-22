@@ -87,3 +87,5 @@ target/
 
 # Mypy cache
 .mypy_cache/
+
+models/64_0.002_0.9_0.01.ckpt

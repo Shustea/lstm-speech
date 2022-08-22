@@ -35,18 +35,18 @@ def mix_signal(p_silence, p_one,args):
     second_speaker = np.zeros(five_sec)
     speakers_dirs = os.listdir(args.wav_path)
     prob = np.random.rand()
-    rand_start = np.zeros(2)
-    snr = 0
-    g = 0
+    rand_start_1 ,rand_start_2, snr, g = [0,0,0,0]
+
     if prob > p_silence :
         first_speaker_id = random.choice(speakers_dirs)
         first_file_id = random.choice(os.listdir(args.wav_path + first_speaker_id))
-        first_speaker, fs = librosa.load(args.wav_path + first_speaker_id + '/' + first_file_id, args.fs)
+        first_speaker, fs = librosa.load(args.wav_path + first_speaker_id + '/' + first_file_id, sr = args.fs)
         if len(first_speaker) > five_sec :
-            rand_start[0] = random.randint(0,len(first_speaker)-five_sec-1) 
-            first_speaker = first_speaker[rand_start[0]:rand_start[0]+five_sec]
+            rand_start_1 = random.randint(0,len(first_speaker)-five_sec-1) 
+            first_speaker = first_speaker[rand_start_1:rand_start_1+five_sec]
         else:
             first_speaker = np.concatenate((first_speaker,np.random.normal(0,1e-4,five_sec-len(first_speaker))))
+        sf.write(args.target_path+first_file_id.split('.')[0]+'_'+str(rand_start_1)+'.wav', first_speaker, fs)
         speakers_dirs.remove(first_speaker_id)
     else:
         first_file_id = 'NONE'
@@ -54,26 +54,27 @@ def mix_signal(p_silence, p_one,args):
         second_speaker_id = random.choice(speakers_dirs)
         second_file_id = random.choice(os.listdir(args.wav_path + second_speaker_id))
         snr = np.random.uniform(0,5)
-        second_speaker, fs = librosa.load(args.wav_path + second_speaker_id + '/' + second_file_id, fs)
+        second_speaker, fs = librosa.load(args.wav_path + second_speaker_id + '/' + second_file_id,sr = fs)
         g = np.sqrt(10**(-snr/10) * (np.std(first_speaker)**2 / np.std(second_speaker)**2))
         if len(second_speaker) > five_sec :
-            rand_start[1] = random.randint(0,len(second_speaker)-five_sec-1) #clips bigger then 10 sec
-            second_speaker = second_speaker[rand_start[1]:rand_start[1]+five_sec]
+            rand_start_2 = random.randint(0,len(second_speaker)-five_sec-1) #clips bigger then 10 sec
+            second_speaker = second_speaker[rand_start_2:rand_start_2+five_sec]
         else:
             second_speaker = np.concatenate((second_speaker,np.random.normal(0,1e-4,five_sec-len(second_speaker))))
+        sf.write(args.target_path+second_file_id.split('.')[0]+'_'+str(rand_start_2)+'.wav', second_speaker, fs)
         speakers_dirs.remove(second_speaker_id)
     else:
         second_file_id = 'NONE'
     mixed_signal = first_speaker + g * second_speaker
-    return mixed_signal, first_file_id.split('.')[0] + '-' + second_file_id.split('.')[0] + '-' + str(snr) + '-' + str(rand_start[0]) + '-' + str(rand_start[1])
+    return mixed_signal, first_file_id.split('.')[0] + '-' + second_file_id.split('.')[0] + '-' + str(snr) + '-' + str(rand_start_1) + '-' + str(rand_start_2)
 
 def createSample(args): #change to generic values
-    # for i in range(args.train_num):
-    #     mix1, mix1_id = mix_signal(0, 0.5, args)
-    #     mix2, mix2_id = mix_signal(0.55, 0.15, args)
-    #     final_sample = np.concatenate((mix1, mix2))
-    #     sf.write(args.train_path + mix1_id + '_' + mix2_id + '.wav' , final_sample, args.fs)
-    #     print('finished file {}/{}'.format(i+1, args.train_num))
+    for i in range(args.train_num):
+        mix1, mix1_id = mix_signal(0, 0.5, args)
+        mix2, mix2_id = mix_signal(0.55, 0.15, args)
+        final_sample = np.concatenate((mix1, mix2))
+        sf.write(args.train_path + mix1_id + '_' + mix2_id + '.wav' , final_sample, args.fs)
+        print('finished file {}/{}'.format(i+1, args.train_num))
     for i in range(args.val_num):
         mix1, mix1_id = mix_signal(0, 0.5, args)
         mix2, mix2_id = mix_signal(0.55, 0.15, args)
@@ -83,23 +84,19 @@ def createSample(args): #change to generic values
 
 
 def getOriginal(sample ,args):
-    first_part_first_speaker, first_part_second_speaker, second_part_first_speaker, second_part_second_speaker = None, None, None, None
-    first_snr, second_snr, first_snap, second_snap, third_snap, forth_snap = 0
+    first_part_first_speaker, first_part_second_speaker, second_part_first_speaker, second_part_second_speaker = None, None, None, None 
+    fs = args.fs
     first_part = sample.split('_')[0]
-    second_part = sample.split('_')[1].split('.')[0]
-    first_part_first_speaker, fs = librosa.load(args.wav_path + first_part.split('-')[0])
+    second_part = sample.split('_')[1].removesuffix('.wav')
+    first_part_first_speaker, fs = librosa.load(args.target_path + first_part.split('-')[0]+ '_' + first_part.split('-')[3] + '.wav', sr = fs)
     if not first_part.split('-')[1] == 'NONE':
-        first_part_second_speaker, _ = librosa.load(args.wav_path + first_part.split('-')[1])
-        first_snr = first_part.split('-')[2]
-    first_snap = first_part.split('-')[3]
-    second_snap = first_part.split('-')[4]
-    second_part_first_speaker, _ = librosa.load(args.wav_path + second_part.split('-')[0])
+        first_part_second_speaker, _ = librosa.load(args.target_path + first_part.split('-')[1]+ '_' + first_part.split('-')[4] + '.wav', sr = fs)
+    if not second_part.split('-')[0] == 'NONE':
+        second_part_first_speaker, _ = librosa.load(args.target_path + second_part.split('-')[0]+ '_' + second_part.split('-')[3] + '.wav', sr = fs)
     if not second_part.split('-')[1] == 'NONE':
-        second_part_second_speaker, _ = librosa.load(args.wav_path + second_part.split('-')[1])
-        second_snr = second_part.split('-')[2]
-    third_snap = second_part.split('-')[3]
-    forth_snap = second_part.split('-')[4]
-    return first_part_first_speaker, first_part_second_speaker, first_snr, second_part_first_speaker, second_part_second_speaker, second_snr, [first_snap, second_snap, third_snap, forth_snap]
+        second_part_second_speaker, _ = librosa.load(args.target_path + second_part.split('-')[1]+ '_' + second_part.split('-')[4] + '.wav', sr = fs)
+    first_snr, second_snr = first_part.split('-')[2], second_part.split('-')[2]
+    return first_part_first_speaker, first_part_second_speaker, first_snr, second_part_first_speaker, second_part_second_speaker, second_snr
 
 
 if __name__ == "__main__":
@@ -109,21 +106,23 @@ if __name__ == "__main__":
 
     parser.add_argument('--train_num', type=int, default= 30000,
                     help='Number of training samples')
-    parser.add_argument('--val_num', type=int, default= 250,
+    parser.add_argument('--val_num', type=int, default= 5000,
                     help='Number of validation samples')
     parser.add_argument('--test_num', type=int, default= 250,
                     help='Number of testing samples')
     parser.add_argument('--fs', type=int, default= 16000,
                     help='sample rate')
-    parser.add_argument('--original_path', type=str, default= '/mnt/dsi_vol1/users/shustea1/data/sd_et_20',
+    parser.add_argument('--original_path', type=str, default= '/dsi/scratch/from_netapp/users/shustea1/data/sd_et_20',
                     help='original data folder path - saved as wv1 and wv2 files')
-    parser.add_argument('--train_path', type=str, default= '/mnt/dsi_vol1/users/shustea1/Data/lstm-speech/data/processed/train/',
+    parser.add_argument('--train_path', type=str, default= '/dsi/scratch/from_netapp/users/shustea1/Data/lstm-speech/data/processed/train/',
                     help='train folder path - saved as 10 sec mixed wav files')
-    parser.add_argument('--val_path', type=str, default= '/mnt/dsi_vol1/users/shustea1/Data/lstm-speech/data/processed/val/',
+    parser.add_argument('--val_path', type=str, default= '/dsi/scratch/from_netapp/users/shustea1/Data/lstm-speech/data/processed/val/',
                     help='val folder path')
-    parser.add_argument('--test_path', type=str, default= '/mnt/dsi_vol1/users/shustea1/Data/lstm-speech/data/processed/test/',
+    parser.add_argument('--test_path', type=str, default= '/dsi/scratch/from_netapp/users/shustea1/Data/lstm-speech/data/processed/test/',
                     help='test folder path')
-    parser.add_argument('--wav_path', type=str, default= '/mnt/dsi_vol1/users/shustea1/Data/lstm-speech/data/raw/WSJ0/',
+    parser.add_argument('--target_path', type=str, default= '/dsi/scratch/from_netapp/users/shustea1/Data/lstm-speech/data/processed/target/',
+                    help='folder containing the correct samples')
+    parser.add_argument('--wav_path', type=str, default= '/dsi/scratch/from_netapp/users/shustea1/Data/lstm-speech/data/raw/WSJ0/',
                     help='wav folder path - for original, non-mixed wav files')
     # parser.add_argument('--train_num', type=int, default= 30000,
     #                 help='Number of training samples')
