@@ -1,0 +1,218 @@
+defaults:
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+
+#  =========== data-sets ===============
+
+data_type: librispeech  # librispeech/nist
+use_libri_s: False  # If True and using DNS, use librispeech signals with DNS noises
+use_dns_whamr: False  # If True and using DNS, use 60% DNS noises and 40% WHAMR noises
+
+data_path : /dsi/scratch/from_netapp/users/shustea1/Data/lstm-speech/data/processed
+
+data_nist_dir : 
+  train: ${data_path}/train
+  val  : ${data_path}/val
+  test : ${data_path}/test
+  target: ${data_path}/target
+
+# =============== DEBUG ===============
+_d: False
+
+# ================ DATA ======================
+
+dont_use_end : 1 # cut the end off uuterance with
+num_frames: 128  # Constant number of frames extracted randomly from each wavefrom 
+fs : 16000
+ 
+window_size: 256  # FFT length
+overlap: 0.5  # Overlap of STFT window
+mode: train
+target: log_spec  # selected target (irm/ibm/old_ibm/log_spec)
+input_map: stft  # selected input (stft/mfcc)
+use_h5: True  # If specified, using saved preprocessed imgs from h5
+
+# spec augment
+spec_augment : False
+spec_aug_time_jump : 64
+N_max : 30
+N_min : 10
+K_max : 30
+K_min : 10
+
+# ================ CUDA ======================
+
+device: cuda
+gpus : -1
+cuda_visible_devices: '2'
+
+# ========= ModelCheckPoints =========
+
+patience : 50
+save_top_k: 5
+save_last: True
+ckpt_monitor: 'val_loss'
+resume_from_checkpoint : None
+
+check_val_every_n_epoch : 1
+precision : 16
+progress_bar_refresh_rate : 5
+log_gpu_memory : False
+seed: 2036
+eps: 1e-6
+gpu_device: 0
+num_workers: 28
+verbose: 1
+
+# Evaluation stuff
+pesq: True  # compute pesq?
+stoi: True  # compute stoi?
+eval_every: 10
+keep_last: 0
+version: 0  # version of loaded model
+
+# Plot
+plot: True  # Whether save plots of STFT and masks (IRM\IBM)
+save_plots_path: /inputs/lior/enhancement/reports/figures
+save_waves_path: /inputs/lior/enhancement/reports/waves
+
+# =========== Model HP ==============
+
+train_batch_size : 64
+val_batch_size : 64
+test_batch_size : 64
+pin_memory : False
+data_loader_shuffle : True
+reconst_noise: False  # Save targets with [clean,noise,noisy]
+distance_reconst: False  # Make distance between recontructed noise and clean specs
+use_origin_noise: False  # If True, save original noise (before normalizing to fit desired SNR)
+diverse: False  # If True, create diverse sentences with noise-only and various SNR levels slices
+test_diverse: False  # If True, use long signals for inference
+return_full: False  # If True, save STFT of the whole signal in h5
+diff_ref: False  # If True, train to give silent target for different ref speaker
+hidden_ref: False   # If using ref speaker, concat its embedding in the latent space (instead concat inputs)
+clean_ref: True  # If True and using ref speaker, use clean ref signal
+diff_noisy_target: False  # If True and using ref speaker and using diff ref, use gaussian noise as target to diff ref
+remove_small_freq: False  # If True, remove small frequencies from input, target and prediction
+high_snr: False  # Use samples with high SNR (10dB)
+random_batch_len: False  # Choose batch length randomly
+
+# ======== Criterion ==========
+
+criterion : CE # CE / MSE
+
+# ======= Optimizer ===========
+
+optimizer : Adam
+lr: 1e-4
+epochs: 500
+batch_size: 64
+beta1: 0.9
+beta2: 0.999
+momentum: 0.9
+
+# ======= Learning rate scheduling ===========
+use_sched: False
+lr_sched: step # can be either step or plateau
+step: 
+  step_size: 30
+  gamma: 0.1
+plateau:
+  factor: 0.5
+  patience: 5
+
+# ========= model_definiton ===========
+use_mel : False
+model_name : UNet 
+cut_shape_f : 0 # if cut the high frequency for size of ^2
+spec_type : 'RI' #logspec #mel_librosa #RI
+lamda_freq : 0
+
+use_mean_std_dnn : True
+
+# ========= Model ===========
+unet_type: unet
+add_tanh: False  # Apply tanh before model's output
+len_fc: 4096  # If normalized with tanh, use FC layer to learn magnitude factor
+in_channels: 1 
+hidden_size: 64  # Size of smallest hidden layer
+depth: 5  # Depth of encoder/decoder
+dropout: False
+dropout_fact: 0.2
+out_channels: 1
+kernel_size: 3
+stride: 4
+padding: 1
+growth: 2  # Growth factor of hidden layer size
+activation: glu  # Other option - ReLU
+normalize: False  # If True, normalize the input after stft
+norm_target: True  # If normalize=True, target STFT also normalized between [-1,1]
+lambda_gan: 0.8  # Weight of MSE in generator loss
+train_disc_percent: 1
+div_unet: False  # Divide spec to upper and lower regions to seperate UNet models
+use_ref: False  # If True, concat ref clean sentence of same speaker
+reflect_pad: False  # If True, use reflection padding instead zero padding in conv layers
+learn_alpha: False  # If True, UNet learns noisy_percent in hiddem dim to enhanced
+use_prelu: False  # Use PReLU instead ReLU in model
+RI_mask: False  # If True, use masking to predict real and imag parts of STFT
+use_sisdri: False  # If True, use si-sdri as loss (instead MSE)
+use_sisdri_mse: False  # If using si-sdri as loss, use also MSE
+use_clean_phase: False  # If True and using si-sdri loss, reconstruct using clean phase
+clean_sisdri_only: False  # If True and using si-sdri loss, use only clean-enhanced factor in loss
+deep_unet: False  # Use one more layer in UNet bottleneck
+
+# ========= Attention properties ===========
+use_attn: False  # Use attention in hidden layer of UNet
+attn_n_layers: 1  # If using attention, specify number of encoder self-attention layers
+attn_n_heads: 8  # If using attention, specify number of self-attention heads
+attn_dim_ff: 2048  # If using attention, specify fc dim in encoder layer
+top_layers: False  # Attention in top UNet layers or not (if not, attention in bottleneck)
+
+# ========= Diarization ===========
+use_smoothed_vad : True
+
+# ========= Switch detection ===========
+predict_spec: False  # Apply an image-to-image task
+switch_cut: False  # Cut slices including switch point
+use_binary_decision: False  # If True, add a binary decision for switch in interval to loss
+choose_from_all: True  # Choose one of all frames in window to classify from (in size of num_frames)
+classify_window_size: 10  # If not choose_from_all, number of frames in window to classify from
+
+# Hydra config
+hydra:
+  run:
+    dir: /dsi/scratch/from_netapp/users/shustea1/Data/lstm-speech/models/${hydra.job.override_dirname}/
+  job:
+    config:
+      # configuration for the ${hydra.job.override_dirname} runtime variable
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        # Remove all paths, as the / in them would mess up things
+        # Remove params that would not impact the training itself
+        # Remove all slurm and submit params.
+        # This is ugly I know...
+        exclude_keys: [
+          'hydra.job_logging.handles.file.filename',
+          'dset.train', 'dset.valid', 'dset.test', 'dset.mix_json', 'dset.mix_dir',
+          'num_prints', 'continue_from',
+          'device', 'num_workers', 'print_freq', 'restart', 'verbose',
+          'log', 'ddp', 'ddp_backend', 'rendezvous_file', 'rank', 'world_size']
+  job_logging:
+    handlers:
+      file:
+        class: logging.FileHandler
+        mode: w
+        formatter: colorlog
+        filename: trainer.log
+      console:
+        class: logging.StreamHandler
+        formatter: colorlog
+        stream: ext://sys.stderr
+
+  hydra_logging:
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: colorlog
+        stream: ext://sys.stderr

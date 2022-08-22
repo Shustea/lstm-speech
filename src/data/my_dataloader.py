@@ -7,17 +7,21 @@ import torchaudio
 import numpy as np
 from make_dataset import getOriginal
 
+import pytorch_lightning as pl
+from torch.utils.data import DataLoader
+
+
 class BasicDataset(Dataset):
     """Generated Input and Output to the model"""
 
-    def __init__(self, cfg, data_path = '/dsi/scratch/from_netapp/users/shustea1/Data/lstm-speech/data/processed/', mode='train'):
+    def __init__(self, cfg, mode='train'):
         """ 
         Args:
             cfg (yaml): Config file
             data_path (string): Data directory
         """
         self.cfg = cfg
-        self.data_path = data_path + mode
+        self.data_path = cfg.data_path + f'/{mode}'
 
     def __len__(self):
         return len(os.listdir(self.data_path))
@@ -50,3 +54,21 @@ class BasicDataset(Dataset):
         return mix_log_spec, target
 
 
+class LstmSpeechDataModule(pl.LightningDataModule):
+    def __init__(self, cfg):
+        super().__init__()
+        self.cfg = cfg
+        
+    def setup(self, stage=None):
+        self.train_set = BasicDataset(self.cfg)
+        self.val_set = BasicDataset(self.cfg, mode = 'val')
+        # self.test_set = BasicDataset(self.cfg, self.cfg.data_dir.test, 'test')
+        
+    def train_dataloader(self):
+        return DataLoader(self.train_set, batch_size=self.cfg.batch_size, shuffle=self.cfg.data_loader_shuffle, num_workers =self.cfg.num_workers, pin_memory= self.cfg.pin_memory)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_set, batch_size=self.cfg.batch_size, shuffle=self.cfg.data_loader_shuffle, num_workers = self.cfg.num_workers, pin_memory= self.cfg.pin_memory)
+
+    # def test_dataloader(self):
+    #     return DataLoader(self.test_set, batch_size=self.cfg.test_batch_size, shuffle=self.cfg.data_loader_shuffle, num_workers = self.cfg.num_workers, pin_memory= self.cfg.pin_memory)
